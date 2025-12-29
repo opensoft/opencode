@@ -15,6 +15,27 @@ export function useConnected() {
   )
 }
 
+/**
+ * Formats a model title with date suffix and latest indicator
+ * @param modelID The model ID (e.g., "claude-opus-4-5-20251101")
+ * @param modelName The model's display name (e.g., "Claude Opus 4.5")
+ * @returns Formatted title with date suffix or "(latest)" indicator
+ */
+function formatModelTitle(modelID: string, modelName: string): string {
+  // Extract date suffix from model ID (e.g., "20251101" from "claude-opus-4-5-20251101")
+  const dateMatch = modelID.match(/-(\d{8})$/)
+  let title = modelName ?? modelID
+  // If model has a date suffix and title doesn't already include it, append it
+  if (dateMatch && !title.includes(dateMatch[1])) {
+    title = `${title} (${dateMatch[1]})`
+  }
+  // If model doesn't have a date suffix and title doesn't say "latest", mark it as latest
+  else if (!dateMatch && !title.toLowerCase().includes("latest")) {
+    title = `${title} (latest)`
+  }
+  return title
+}
+
 export function DialogModel(props: { providerID?: string }) {
   const local = useLocal()
   const sync = useSync()
@@ -55,7 +76,7 @@ export function DialogModel(props: { providerID?: string }) {
             providerID: provider.id,
             modelID: model.id,
           },
-          title: model.name ?? item.modelID,
+          title: formatModelTitle(model.id, model.name ?? item.modelID),
           description: provider.name,
           category: "Favorites",
           disabled: provider.id === "opencode" && model.id.includes("-nano"),
@@ -86,7 +107,7 @@ export function DialogModel(props: { providerID?: string }) {
             providerID: provider.id,
             modelID: model.id,
           },
-          title: model.name ?? item.modelID,
+          title: formatModelTitle(model.id, model.name ?? item.modelID),
           description: provider.name,
           category: "Recent",
           disabled: provider.id === "opencode" && model.id.includes("-nano"),
@@ -128,17 +149,7 @@ export function DialogModel(props: { providerID?: string }) {
               providerID: provider.id,
               modelID: model,
             }
-            // Extract date suffix from model ID (e.g., "20251101" from "claude-opus-4-5-20251101")
-            const dateMatch = model.match(/-(\d{8})$/)
-            let title = info.name ?? model
-            // If model has a date suffix and title doesn't already include it, append it
-            if (dateMatch && !title.includes(dateMatch[1])) {
-              title = `${title} (${dateMatch[1]})`
-            }
-            // If model doesn't have a date suffix and title doesn't say "latest", mark it as latest
-            else if (!dateMatch && !title.toLowerCase().includes("latest")) {
-              title = `${title} (latest)`
-            }
+            const title = formatModelTitle(model, info.name ?? model)
             return {
               value,
               title,
