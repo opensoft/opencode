@@ -8,6 +8,40 @@ import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { Keybind } from "@/util/keybind"
 import * as fuzzysort from "fuzzysort"
 
+/**
+ * Validates that an 8-digit string represents a plausible date in YYYYMMDD format.
+ * Checks that:
+ * - Year is between 2000-2099
+ * - Month is between 01-12
+ * - Day is between 01-31
+ */
+function isPlausibleDate(dateStr: string): boolean {
+  if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
+    return false
+  }
+
+  const year = parseInt(dateStr.substring(0, 4), 10)
+  const month = parseInt(dateStr.substring(4, 6), 10)
+  const day = parseInt(dateStr.substring(6, 8), 10)
+
+  // Validate year range (2000-2099)
+  if (year < 2000 || year > 2099) {
+    return false
+  }
+
+  // Validate month range (01-12)
+  if (month < 1 || month > 12) {
+    return false
+  }
+
+  // Validate day range (01-31)
+  if (day < 1 || day > 31) {
+    return false
+  }
+
+  return true
+}
+
 export function useConnected() {
   const sync = useSync()
   return createMemo(() =>
@@ -118,7 +152,11 @@ export function DialogModel(props: { providerID?: string }) {
           filter(([_, info]) => info.status !== "deprecated"),
           filter(([_, info]) => (props.providerID ? info.providerID === props.providerID : true)),
           // Filter out dated model versions when "show latest only" is enabled
-          filter(([model, _]) => !showLatestOnly() || !model.match(/-\d{8}$/)),
+          filter(([model, _]) => {
+            if (!showLatestOnly()) return true
+            const dateMatch = model.match(/-(\d{8})$/)
+            return !dateMatch || !isPlausibleDate(dateMatch[1])
+          }),
           map(([model, info]) => {
             const value = {
               providerID: provider.id,
@@ -126,13 +164,14 @@ export function DialogModel(props: { providerID?: string }) {
             }
             // Extract date suffix from model ID (e.g., "20251101" from "claude-opus-4-5-20251101")
             const dateMatch = model.match(/-(\d{8})$/)
+            const hasValidDate = dateMatch && isPlausibleDate(dateMatch[1])
             let title = info.name ?? model
             // If model has a date suffix and title doesn't already include it, append it
-            if (dateMatch && !title.includes(dateMatch[1])) {
-              title = `${title} (${dateMatch[1]})`
+            if (hasValidDate && !title.includes(dateMatch![1])) {
+              title = `${title} (${dateMatch![1]})`
             }
             // If model doesn't have a date suffix and title doesn't say "latest", mark it as latest
-            else if (!dateMatch && !title.toLowerCase().includes("latest")) {
+            else if (!hasValidDate && !title.toLowerCase().includes("latest")) {
               title = `${title} (latest)`
             }
             return {
