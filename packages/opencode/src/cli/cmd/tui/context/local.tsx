@@ -136,7 +136,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             recent: modelStore.recent,
             favorite: modelStore.favorite,
           }),
-        )
+        ).catch(() => {})
       }
 
       file
