@@ -13,7 +13,7 @@ import * as fuzzysort from "fuzzysort"
  * Checks that:
  * - Year is between 2000-2099
  * - Month is between 01-12
- * - Day is between 01-31
+ * - Day is between 01-31 and is valid for the given month/year
  */
 function isPlausibleDate(dateStr: string): boolean {
   if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
@@ -36,6 +36,13 @@ function isPlausibleDate(dateStr: string): boolean {
 
   // Validate day range (01-31)
   if (day < 1 || day > 31) {
+    return false
+  }
+
+  // Use Date constructor to validate the actual date existence
+  // (e.g., February 30th would be invalid)
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
     return false
   }
 
@@ -164,14 +171,14 @@ export function DialogModel(props: { providerID?: string }) {
             }
             // Extract date suffix from model ID (e.g., "20251101" from "claude-opus-4-5-20251101")
             const dateMatch = model.match(/-(\d{8})$/)
-            const hasValidDate = dateMatch && isPlausibleDate(dateMatch[1])
+            const validDateSuffix = dateMatch && isPlausibleDate(dateMatch[1]) ? dateMatch[1] : null
             let title = info.name ?? model
             // If model has a date suffix and title doesn't already include it, append it
-            if (hasValidDate && !title.includes(dateMatch![1])) {
-              title = `${title} (${dateMatch![1]})`
+            if (validDateSuffix && !title.includes(validDateSuffix)) {
+              title = `${title} (${validDateSuffix})`
             }
             // If model doesn't have a date suffix and title doesn't say "latest", mark it as latest
-            else if (!hasValidDate && !title.toLowerCase().includes("latest")) {
+            else if (!validDateSuffix && !title.toLowerCase().includes("latest")) {
               title = `${title} (latest)`
             }
             return {
