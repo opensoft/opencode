@@ -117,8 +117,12 @@ export function DialogModel(props: { providerID?: string }) {
           entries(),
           filter(([_, info]) => info.status !== "deprecated"),
           filter(([_, info]) => (props.providerID ? info.providerID === props.providerID : true)),
-          // Filter out dated model versions when "show latest only" is enabled
-          filter(([model, _]) => !showLatestOnly() || !model.match(/-\d{8}$/)),
+          // Filter out dated model versions when "show latest only" is enabled,
+          // but always show all models when a specific providerID is focused.
+          filter(([model, _]) => {
+            if (props.providerID) return true
+            return !showLatestOnly() || !model.match(/-\d{8}$/)
+          }),
           map(([model, info]) => {
             const value = {
               providerID: provider.id,
