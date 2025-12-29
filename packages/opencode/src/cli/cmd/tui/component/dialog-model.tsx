@@ -8,6 +8,47 @@ import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { Keybind } from "@/util/keybind"
 import * as fuzzysort from "fuzzysort"
 
+/**
+ * Validates that an 8-digit string represents a plausible date in YYYYMMDD format.
+ * Checks that:
+ * - Year is between 2000-2099
+ * - Month is between 01-12
+ * - Day is between 01-31 and is valid for the given month/year
+ */
+function isPlausibleDate(dateStr: string): boolean {
+  if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
+    return false
+  }
+
+  const year = parseInt(dateStr.substring(0, 4), 10)
+  const month = parseInt(dateStr.substring(4, 6), 10)
+  const day = parseInt(dateStr.substring(6, 8), 10)
+
+  // Validate year range (2000-2099)
+  if (year < 2000 || year > 2099) {
+    return false
+  }
+
+  // Validate month range (01-12)
+  if (month < 1 || month > 12) {
+    return false
+  }
+
+  // Validate day range (01-31)
+  if (day < 1 || day > 31) {
+    return false
+  }
+
+  // Use Date constructor to validate the actual date existence
+  // (e.g., February 30th would be invalid)
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return false
+  }
+
+  return true
+}
+
 export function useConnected() {
   const sync = useSync()
   return createMemo(() =>
