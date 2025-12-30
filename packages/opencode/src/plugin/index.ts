@@ -7,6 +7,7 @@ import { Server } from "../server/server"
 import { BunProc } from "../bun"
 import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
+import { OpenAICodexAuthPlugin } from "@opencode-ai/openai-codex-auth"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
@@ -44,6 +45,17 @@ export namespace Plugin {
       for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
         const init = await fn(input)
         hooks.push(init)
+      }
+    }
+
+    // Load built-in plugins
+    if (!Flag.OPENCODE_DISABLE_DEFAULT_PLUGINS) {
+      try {
+        log.info("loading built-in plugin", { name: "openai-codex-auth" })
+        const openaiCodexHooks = await OpenAICodexAuthPlugin(input)
+        hooks.push(openaiCodexHooks)
+      } catch (err) {
+        log.error("failed to load openai-codex-auth plugin", { error: err })
       }
     }
 
