@@ -52,18 +52,21 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
 
             // Required by ChatGPT backend
             body.store = false
+            body.stream = true
 
             // Extract system message from input array for instructions
             if (!body.instructions && body.input && Array.isArray(body.input)) {
               const systemMsg = body.input.find(
                 (item: { role?: string; type?: string }) =>
-                  item.role === "system" || item.type === "message" && item.role === "system"
+                  item.role === "system" || (item.type === "message" && item.role === "system")
               )
               if (systemMsg?.content) {
                 const content = Array.isArray(systemMsg.content)
                   ? systemMsg.content.map((c: { text?: string }) => c.text || "").join("\n")
                   : systemMsg.content
                 body.instructions = content
+                // Remove the system message from input since it's now in instructions
+                body.input = body.input.filter((item: { role?: string }) => item.role !== "system")
               }
             }
 
@@ -78,6 +81,14 @@ When helping with code:
 - Follow best practices for the language being used
 - Explain your reasoning when helpful
 - Ask clarifying questions if the request is ambiguous`
+            }
+
+            // Strip item IDs for stateless operation (required by Codex backend)
+            if (body.input && Array.isArray(body.input)) {
+              body.input = body.input.map((item: Record<string, unknown>) => {
+                const { id, ...rest } = item
+                return rest
+              })
             }
 
             modifiedInit = {
