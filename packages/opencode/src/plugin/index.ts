@@ -48,14 +48,26 @@ export namespace Plugin {
       }
     }
 
-    // Load built-in plugins
+    // Load OpenAI Codex auth - use external plugin which has proper prompt alignment
     if (!Flag.OPENCODE_DISABLE_DEFAULT_PLUGINS) {
       try {
-        log.info("loading built-in plugin", { name: "openai-codex-auth" })
-        const openaiCodexHooks = await OpenAICodexAuthPlugin(input)
-        hooks.push(openaiCodexHooks)
+        log.info("loading external plugin", { name: "opencode-openai-codex-auth" })
+        const codexPlugin = await BunProc.install("opencode-openai-codex-auth", "latest")
+        const codexMod = await import(codexPlugin)
+        for (const [_name, fn] of Object.entries<PluginInstance>(codexMod)) {
+          const init = await fn(input)
+          hooks.push(init)
+        }
       } catch (err) {
-        log.error("failed to load openai-codex-auth plugin", { error: err })
+        log.error("failed to load opencode-openai-codex-auth plugin", { error: err })
+        // Fallback to built-in plugin
+        try {
+          log.info("falling back to built-in plugin", { name: "openai-codex-auth" })
+          const openaiCodexHooks = await OpenAICodexAuthPlugin(input)
+          hooks.push(openaiCodexHooks)
+        } catch (fallbackErr) {
+          log.error("failed to load built-in openai-codex-auth plugin", { error: fallbackErr })
+        }
       }
     }
 
