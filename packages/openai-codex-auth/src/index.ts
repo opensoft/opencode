@@ -9,6 +9,7 @@ import type { Plugin, AuthHook, AuthOuathResult } from "@opencode-ai/plugin"
 import { initiateOAuthFlow, refreshAccessToken } from "./auth/auth"
 import { PROVIDER_ID, AUTH_LABEL, CODEX_API, CODEX_HEADERS } from "./constants"
 import { isTokenExpired, extractAccountId } from "./request/fetch-helpers"
+import { CODEX_SYSTEM_PROMPT } from "./codex-prompt"
 
 /**
  * OpenAI Codex Authentication Plugin
@@ -70,17 +71,9 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
               }
             }
 
-            // Default instructions if still not set - must match Codex expected format
+            // Default instructions - use official Codex system prompt
             if (!body.instructions) {
-              body.instructions = `You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.
-
-You are a helpful coding assistant that helps users with programming tasks. You can read files, write code, and execute commands to help accomplish the user's goals.
-
-When helping with code:
-- Write clean, well-structured code
-- Follow best practices for the language being used
-- Explain your reasoning when helpful
-- Ask clarifying questions if the request is ambiguous`
+              body.instructions = CODEX_SYSTEM_PROMPT
             }
 
             // Strip item IDs for stateless operation (required by Codex backend)
