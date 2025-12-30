@@ -8,7 +8,7 @@ export const OAUTH_CONFIG = {
   authorizationUrl: "https://auth.openai.com/oauth/authorize",
   tokenUrl: "https://auth.openai.com/oauth/token",
   redirectUri: "http://localhost:1455/auth/callback",
-  scopes: ["openid", "profile", "email", "offline_access"],
+  scopes: ["openid", "profile", "email", "offline_access", "api.responses.read", "api.responses.write"],
   audience: "https://api.openai.com/v1",
 } as const
 
