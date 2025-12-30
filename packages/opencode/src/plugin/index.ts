@@ -7,7 +7,6 @@ import { Server } from "../server/server"
 import { BunProc } from "../bun"
 import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
-import { OpenAICodexAuthPlugin } from "@opencode-ai/openai-codex-auth"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
@@ -48,10 +47,10 @@ export namespace Plugin {
       }
     }
 
-    // Load OpenAI Codex auth - use external plugin which has proper prompt alignment
+    // Load OpenAI Codex auth plugin for ChatGPT Plus/Pro subscribers
     if (!Flag.OPENCODE_DISABLE_DEFAULT_PLUGINS) {
       try {
-        log.info("loading external plugin", { name: "opencode-openai-codex-auth" })
+        log.info("loading plugin", { name: "opencode-openai-codex-auth" })
         const codexPlugin = await BunProc.install("opencode-openai-codex-auth", "latest")
         const codexMod = await import(codexPlugin)
         for (const [_name, fn] of Object.entries<PluginInstance>(codexMod)) {
@@ -60,14 +59,6 @@ export namespace Plugin {
         }
       } catch (err) {
         log.error("failed to load opencode-openai-codex-auth plugin", { error: err })
-        // Fallback to built-in plugin
-        try {
-          log.info("falling back to built-in plugin", { name: "openai-codex-auth" })
-          const openaiCodexHooks = await OpenAICodexAuthPlugin(input)
-          hooks.push(openaiCodexHooks)
-        } catch (fallbackErr) {
-          log.error("failed to load built-in openai-codex-auth plugin", { error: fallbackErr })
-        }
       }
     }
 
