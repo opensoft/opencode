@@ -32,6 +32,21 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
       }
 
       /**
+       * Custom fetch that rewrites URLs for the Codex backend
+       * The SDK sends to /responses but Codex expects /codex/responses
+       */
+      const codexFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        let url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+
+        // Rewrite /responses to /codex/responses for the Codex backend
+        if (url.includes("/responses") && !url.includes("/codex/responses")) {
+          url = url.replace("/responses", "/codex/responses")
+        }
+
+        return fetch(url, init)
+      }
+
+      /**
        * Build SDK options with Codex backend configuration
        */
       const buildOptions = (accessToken: string, refreshedAuth?: object) => {
@@ -48,6 +63,7 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
           apiKey: accessToken,
           baseURL: CODEX_API.baseUrl,
           headers,
+          fetch: codexFetch,
           ...(refreshedAuth ? { _refreshedAuth: refreshedAuth } : {}),
         }
       }
