@@ -55,26 +55,14 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
             body.store = false
             body.stream = true
 
-            // Extract system message from input array for instructions
-            if (!body.instructions && body.input && Array.isArray(body.input)) {
-              const systemMsg = body.input.find(
-                (item: { role?: string; type?: string }) =>
-                  item.role === "system" || (item.type === "message" && item.role === "system")
-              )
-              if (systemMsg?.content) {
-                const content = Array.isArray(systemMsg.content)
-                  ? systemMsg.content.map((c: { text?: string }) => c.text || "").join("\n")
-                  : systemMsg.content
-                body.instructions = content
-                // Remove the system message from input since it's now in instructions
-                body.input = body.input.filter((item: { role?: string }) => item.role !== "system")
-              }
+            // Remove any system messages from input - Codex backend handles instructions differently
+            if (body.input && Array.isArray(body.input)) {
+              body.input = body.input.filter((item: { role?: string }) => item.role !== "system")
             }
 
-            // Default instructions - use official Codex system prompt
-            if (!body.instructions) {
-              body.instructions = CODEX_SYSTEM_PROMPT
-            }
+            // Delete any existing instructions - backend will use model-specific defaults
+            // DO NOT set instructions manually - backend validates them strictly
+            delete body.instructions
 
             // Strip item IDs for stateless operation (required by Codex backend)
             if (body.input && Array.isArray(body.input)) {
