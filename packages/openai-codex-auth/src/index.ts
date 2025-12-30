@@ -32,8 +32,9 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
       }
 
       /**
-       * Custom fetch that rewrites URLs for the Codex backend
+       * Custom fetch that rewrites URLs and transforms request body for the Codex backend
        * The SDK sends to /responses but Codex expects /codex/responses
+       * Codex also requires an 'instructions' field in the request body
        */
       const codexFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         let url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
@@ -43,7 +44,27 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
           url = url.replace("/responses", "/codex/responses")
         }
 
-        return fetch(url, init)
+        // Transform request body to add required 'instructions' field
+        let modifiedInit = init
+        if (init?.body && typeof init.body === "string") {
+          try {
+            const body = JSON.parse(init.body)
+
+            // Add instructions if not present (required by Codex backend)
+            if (!body.instructions) {
+              body.instructions = "You are a helpful assistant."
+            }
+
+            modifiedInit = {
+              ...init,
+              body: JSON.stringify(body),
+            }
+          } catch {
+            // If body isn't JSON, pass through unchanged
+          }
+        }
+
+        return fetch(url, modifiedInit)
       }
 
       /**
