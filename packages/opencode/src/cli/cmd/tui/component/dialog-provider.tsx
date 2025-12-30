@@ -10,6 +10,7 @@ import { useTheme } from "../context/theme"
 import { TextAttributes } from "@opentui/core"
 import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2"
 import { DialogModel } from "./dialog-model"
+import open from "open"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   opencode: 0,
@@ -62,11 +63,13 @@ export function createDialogProviderOptions() {
           }
           if (index == null) return
           const method = methods[index]
+
           if (method.type === "oauth") {
             const result = await sdk.client.provider.oauth.authorize({
               providerID: provider.id,
               method: index,
             })
+
             if (result.data?.method === "code") {
               dialog.replace(() => (
                 <CodeMethod providerID={provider.id} title={method.label} index={index} authorization={result.data!} />
@@ -106,6 +109,9 @@ function AutoMethod(props: AutoMethodProps) {
   const sync = useSync()
 
   onMount(async () => {
+    // Automatically open the auth URL in the browser
+    open(props.authorization.url).catch(() => {})
+
     const result = await sdk.client.provider.oauth.callback({
       providerID: props.providerID,
       method: props.index,
@@ -116,7 +122,7 @@ function AutoMethod(props: AutoMethodProps) {
     }
     await sdk.client.instance.dispose()
     await sync.bootstrap()
-    dialog.replace(() => <DialogModel providerID={props.providerID} />)
+    dialog.replace(() => <DialogModel />)
   })
 
   return (
@@ -149,6 +155,11 @@ function CodeMethod(props: CodeMethodProps) {
   const dialog = useDialog()
   const [error, setError] = createSignal(false)
 
+  // Automatically open the auth URL in the browser
+  onMount(() => {
+    open(props.authorization.url).catch(() => {})
+  })
+
   return (
     <DialogPrompt
       title={props.title}
@@ -162,7 +173,7 @@ function CodeMethod(props: CodeMethodProps) {
         if (!error) {
           await sdk.client.instance.dispose()
           await sync.bootstrap()
-          dialog.replace(() => <DialogModel providerID={props.providerID} />)
+          dialog.replace(() => <DialogModel />)
           return
         }
         setError(true)
@@ -217,7 +228,7 @@ function ApiMethod(props: ApiMethodProps) {
         })
         await sdk.client.instance.dispose()
         await sync.bootstrap()
-        dialog.replace(() => <DialogModel providerID={props.providerID} />)
+        dialog.replace(() => <DialogModel />)
       }}
     />
   )
