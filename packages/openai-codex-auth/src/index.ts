@@ -44,15 +44,32 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
           url = url.replace("/responses", "/codex/responses")
         }
 
-        // Transform request body to add required 'instructions' field
+        // Transform request body for Codex backend requirements
         let modifiedInit = init
         if (init?.body && typeof init.body === "string") {
           try {
             const body = JSON.parse(init.body)
 
-            // Add instructions if not present (required by Codex backend)
+            // Required by ChatGPT backend
+            body.store = false
+
+            // Extract system message from input array for instructions
+            if (!body.instructions && body.input && Array.isArray(body.input)) {
+              const systemMsg = body.input.find(
+                (item: { role?: string; type?: string }) =>
+                  item.role === "system" || item.type === "message" && item.role === "system"
+              )
+              if (systemMsg?.content) {
+                const content = Array.isArray(systemMsg.content)
+                  ? systemMsg.content.map((c: { text?: string }) => c.text || "").join("\n")
+                  : systemMsg.content
+                body.instructions = content
+              }
+            }
+
+            // Default instructions if still not set
             if (!body.instructions) {
-              body.instructions = "You are a helpful assistant."
+              body.instructions = "You are a helpful coding assistant. Help the user with their programming tasks."
             }
 
             modifiedInit = {
