@@ -3,7 +3,7 @@
  */
 
 import { refreshAccessToken } from "../auth/auth"
-import { CODEX_API } from "../constants"
+import { CODEX_API, CODEX_HEADERS } from "../constants"
 
 export interface TokenManager {
   accessToken: string
@@ -51,13 +51,47 @@ export async function getValidAccessToken(manager: TokenManager): Promise<string
 }
 
 /**
- * Create authorization headers for API requests
+ * Decode a JWT token and extract claims (without verification)
+ */
+export function decodeJWT(token: string): Record<string, unknown> {
+  try {
+    const parts = token.split(".")
+    if (parts.length !== 3) return {}
+    const payload = parts[1]
+    const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    return JSON.parse(decoded)
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Extract ChatGPT account ID from JWT token
+ */
+export function extractAccountId(accessToken: string): string | undefined {
+  const claims = decodeJWT(accessToken)
+  const authClaims = claims[CODEX_HEADERS.jwtClaimPath] as Record<string, unknown> | undefined
+  return authClaims?.["organization_id"] as string | undefined
+}
+
+/**
+ * Create authorization headers for Codex API requests
  */
 export function createAuthHeaders(accessToken: string): Record<string, string> {
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
+    "OpenAI-Beta": CODEX_HEADERS.openAiBeta,
+    originator: CODEX_HEADERS.originator,
   }
+
+  // Extract and add account ID from JWT if available
+  const accountId = extractAccountId(accessToken)
+  if (accountId) {
+    headers["chatgpt-account-id"] = accountId
+  }
+
+  return headers
 }
 
 /**

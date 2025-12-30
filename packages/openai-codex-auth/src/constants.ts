@@ -19,8 +19,14 @@ export const LOCAL_SERVER = {
 } as const
 
 export const CODEX_API = {
-  baseUrl: "https://api.openai.com/v1",
-  responsesEndpoint: "/responses",
+  baseUrl: "https://chatgpt.com/backend-api",
+  responsesEndpoint: "/codex/responses",
+} as const
+
+export const CODEX_HEADERS = {
+  openAiBeta: "responses=experimental",
+  originator: "codex_cli_rs",
+  jwtClaimPath: "https://api.openai.com/auth",
 } as const
 
 export const PLUGIN_NAME = "openai-codex-auth"

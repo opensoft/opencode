@@ -7,8 +7,8 @@
 
 import type { Plugin, AuthHook, AuthOuathResult } from "@opencode-ai/plugin"
 import { initiateOAuthFlow, refreshAccessToken } from "./auth/auth"
-import { PROVIDER_ID, AUTH_LABEL } from "./constants"
-import { isTokenExpired } from "./request/fetch-helpers"
+import { PROVIDER_ID, AUTH_LABEL, CODEX_API, CODEX_HEADERS } from "./constants"
+import { isTokenExpired, extractAccountId } from "./request/fetch-helpers"
 
 /**
  * OpenAI Codex Authentication Plugin
@@ -22,7 +22,7 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
 
     /**
      * Loader function called when the provider needs authentication
-     * Handles token refresh and returns SDK options
+     * Handles token refresh and returns SDK options for Codex backend
      */
     loader: async (getAuth, _provider) => {
       const auth = await getAuth()
@@ -31,35 +31,47 @@ export const OpenAICodexAuthPlugin: Plugin = async (_ctx) => {
         return {}
       }
 
+      /**
+       * Build SDK options with Codex backend configuration
+       */
+      const buildOptions = (accessToken: string, refreshedAuth?: object) => {
+        const accountId = extractAccountId(accessToken)
+        const headers: Record<string, string> = {
+          "OpenAI-Beta": CODEX_HEADERS.openAiBeta,
+          originator: CODEX_HEADERS.originator,
+        }
+        if (accountId) {
+          headers["chatgpt-account-id"] = accountId
+        }
+
+        return {
+          apiKey: accessToken,
+          baseURL: CODEX_API.baseUrl,
+          headers,
+          ...(refreshedAuth ? { _refreshedAuth: refreshedAuth } : {}),
+        }
+      }
+
       // Check if token needs refresh
       if (isTokenExpired(auth.expires)) {
         try {
           const tokens = await refreshAccessToken(auth.refresh)
           const newExpires = Date.now() + tokens.expires_in * 1000
 
-          // Return refreshed credentials
-          // Note: The opencode system will handle persisting these
-          return {
-            apiKey: tokens.access_token,
-            _refreshedAuth: {
-              type: "oauth" as const,
-              access: tokens.access_token,
-              refresh: tokens.refresh_token,
-              expires: newExpires,
-            },
-          }
+          return buildOptions(tokens.access_token, {
+            type: "oauth" as const,
+            access: tokens.access_token,
+            refresh: tokens.refresh_token,
+            expires: newExpires,
+          })
         } catch (error) {
           console.error("[openai-codex-auth] Failed to refresh token:", error)
           // Return existing token and let the API call fail if it's truly expired
-          return {
-            apiKey: auth.access,
-          }
+          return buildOptions(auth.access)
         }
       }
 
-      return {
-        apiKey: auth.access,
-      }
+      return buildOptions(auth.access)
     },
 
     methods: [
