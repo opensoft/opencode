@@ -13,7 +13,7 @@ export const OAUTH_CONFIG = {
 } as const
 
 export const LOCAL_SERVER = {
-  host: "127.0.0.1",
+  host: "0.0.0.0", // Bind to all interfaces for WSL2 compatibility
   port: 1455,
   callbackPath: "/auth/callback",
 } as const
