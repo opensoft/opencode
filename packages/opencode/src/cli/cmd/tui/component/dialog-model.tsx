@@ -8,32 +8,52 @@ import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { Keybind } from "@/util/keybind"
 import * as fuzzysort from "fuzzysort"
 
+/**
+ * Validates that an 8-digit string represents a plausible date in YYYYMMDD format.
+ * Checks that:
+ * - Year is between 2000-2099
+ * - Month is between 01-12
+ * - Day is between 01-31 and is valid for the given month/year
+ */
+function isPlausibleDate(dateStr: string): boolean {
+  if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
+    return false
+  }
+
+  const year = parseInt(dateStr.substring(0, 4), 10)
+  const month = parseInt(dateStr.substring(4, 6), 10)
+  const day = parseInt(dateStr.substring(6, 8), 10)
+
+  // Validate year range (2000-2099)
+  if (year < 2000 || year > 2099) {
+    return false
+  }
+
+  // Validate month range (01-12)
+  if (month < 1 || month > 12) {
+    return false
+  }
+
+  // Validate day range (01-31)
+  if (day < 1 || day > 31) {
+    return false
+  }
+
+  // Use Date constructor to validate the actual date existence
+  // (e.g., February 30th would be invalid)
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return false
+  }
+
+  return true
+}
+
 export function useConnected() {
   const sync = useSync()
   return createMemo(() =>
     sync.data.provider.some((x) => x.id !== "opencode" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
   )
-}
-
-/**
- * Formats a model title with date suffix and latest indicator
- * @param modelID The model ID (e.g., "claude-opus-4-5-20251101")
- * @param modelName The model's display name (e.g., "Claude Opus 4.5")
- * @returns Formatted title with date suffix or "(latest)" indicator
- */
-function formatModelTitle(modelID: string, modelName: string): string {
-  // Extract date suffix from model ID (e.g., "20251101" from "claude-opus-4-5-20251101")
-  const dateMatch = modelID.match(/-(\d{8})$/)
-  let title = modelName ?? modelID
-  // If model has a date suffix and title doesn't already include it, append it
-  if (dateMatch && !title.includes(dateMatch[1])) {
-    title = `${title} (${dateMatch[1]})`
-  }
-  // If model doesn't have a date suffix and title doesn't say "latest", mark it as latest
-  else if (!dateMatch && !title.toLowerCase().includes("latest")) {
-    title = `${title} (latest)`
-  }
-  return title
 }
 
 export function DialogModel(props: { providerID?: string }) {
@@ -76,7 +96,7 @@ export function DialogModel(props: { providerID?: string }) {
             providerID: provider.id,
             modelID: model.id,
           },
-          title: formatModelTitle(model.id, model.name ?? item.modelID),
+          title: model.name ?? item.modelID,
           description: provider.name,
           category: "Favorites",
           disabled: provider.id === "opencode" && model.id.includes("-nano"),
@@ -107,7 +127,7 @@ export function DialogModel(props: { providerID?: string }) {
             providerID: provider.id,
             modelID: model.id,
           },
-          title: formatModelTitle(model.id, model.name ?? item.modelID),
+          title: model.name ?? item.modelID,
           description: provider.name,
           category: "Recent",
           disabled: provider.id === "opencode" && model.id.includes("-nano"),
@@ -139,13 +159,28 @@ export function DialogModel(props: { providerID?: string }) {
           filter(([_, info]) => info.status !== "deprecated"),
           filter(([_, info]) => (props.providerID ? info.providerID === props.providerID : true)),
           // Filter out dated model versions when "show latest only" is enabled
-          filter(([model, _]) => !showLatestOnly() || !model.match(/-\d{8}$/)),
+          filter(([model, _]) => {
+            if (!showLatestOnly()) return true
+            const dateMatch = model.match(/-(\d{8})$/)
+            return !dateMatch || !isPlausibleDate(dateMatch[1])
+          }),
           map(([model, info]) => {
             const value = {
               providerID: provider.id,
               modelID: model,
             }
-            const title = formatModelTitle(model, info.name ?? model)
+            // Extract date suffix from model ID (e.g., "20251101" from "claude-opus-4-5-20251101")
+            const dateMatch = model.match(/-(\d{8})$/)
+            const validDateSuffix = dateMatch && isPlausibleDate(dateMatch[1]) ? dateMatch[1] : null
+            let title = info.name ?? model
+            // If model has a date suffix and title doesn't already include it, append it
+            if (validDateSuffix && !title.includes(validDateSuffix)) {
+              title = `${title} (${validDateSuffix})`
+            }
+            // If model doesn't have a date suffix and title doesn't say "latest", mark it as latest
+            else if (!validDateSuffix && !title.toLowerCase().includes("latest")) {
+              title = `${title} (latest)`
+            }
             return {
               value,
               title,
