@@ -1,0 +1,56 @@
+name: Rebase opensoft-prod onto production
+
+on:
+  schedule:
+    - cron: "0 2 * * 0" # Weekly on Sunday at 2:00 AM UTC
+  workflow_dispatch:
+
+jobs:
+  rebase:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch all branches
+        run: |
+          git fetch origin production
+          git fetch origin opensoft-prod
+
+      - name: Attempt rebase
+        id: rebase
+        run: |
+          git checkout opensoft-prod
+          if git rebase origin/production; then
+            echo "rebase_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "rebase_status=conflict" >> $GITHUB_OUTPUT
+            git rebase --abort
+          fi
+
+      - name: Push rebased branch
+        if: steps.rebase.outputs.rebase_status == 'success'
+        run: |
+          git push --force-with-lease origin opensoft-prod
+
+      - name: Create issue on conflict
+        if: steps.rebase.outputs.rebase_status == 'conflict'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_BODY=$(cat .github/rebase-conflict-message.md)
+          gh issue create \
+            --title "Rebase Conflict: opensoft-prod onto production" \
+            --body "$ISSUE_BODY" \
+            --label "maintenance,rebase-conflict"
