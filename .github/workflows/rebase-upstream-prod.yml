@@ -39,7 +39,6 @@ jobs:
 
       - name: Rebase onto upstream/production
         id: rebase
-        continue-on-error: true
         run: |
           echo "Attempting rebase of opensoft-prod onto upstream/production..."
           if git rebase upstream/production; then
@@ -60,7 +59,7 @@ jobs:
           echo "Successfully pushed rebased branch"
 
       - name: Create issue on conflict
-        if: steps.rebase.outputs.result == 'conflict'
+        if: failure() && steps.rebase.outputs.result == 'conflict'
         uses: actions/github-script@v7
         with:
           script: |
@@ -89,27 +88,20 @@ jobs:
             ].join(' ');
             const issueBody = `## Automated Rebase Failed
 
-            The automated rebase of \`opensoft-prod\` onto
-            \`upstream/production\` has encountered conflicts that require
-            manual resolution.
+            The automated rebase of \`opensoft-prod\` onto \`upstream/production\` has encountered conflicts that require manual resolution.
 
-            **Workflow Run:** [#${context.runNumber}](${
-              context.payload.repository.html_url
-            }/actions/runs/${context.runId})
+            **Workflow Run:** [#${context.runNumber}](${context.payload.repository.html_url}/actions/runs/${context.runId})
 
             ## What Happened
 
             The GitHub Actions workflow attempted to:
-            1. Fetch the latest \`production\` branch from upstream
-               (sst/opencode)
+            1. Fetch the latest \`production\` branch from upstream (sst/opencode)
             2. Rebase \`opensoft-prod\` onto \`upstream/production\`
             3. The rebase encountered merge conflicts and was aborted
 
             ## Next Steps
 
-            A maintainer needs to manually resolve the conflicts and
-            push the rebased branch. Please follow the instructions
-            below:
+            A maintainer needs to manually resolve the conflicts and push the rebased branch. Please follow the instructions below:
 
             ---
 
@@ -120,16 +112,10 @@ jobs:
             ## After Resolution
 
             Once you've manually resolved and pushed the changes:
-            - [ ] Verify \`opensoft-prod\` is up to date with
-                  \`upstream/production\`
+            - [ ] Verify \`opensoft-prod\` is up to date with \`upstream/production\`
             - [ ] Close this issue
             - [ ] The next automated run should succeed
-
-            ## Labels
-
-            - \`automated\`: Created by automated workflow
-            - \`maintenance\`: Repository maintenance task
-            `;
+            `.trim();
 
             // Check if an issue already exists
             const existingIssues = await github.rest.issues.listForRepo({
