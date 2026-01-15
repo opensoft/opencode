@@ -66,10 +66,10 @@ For each conflicted file:
 2. Look for conflict markers:
    ```
    <<<<<<< HEAD
-   (your changes)
+   (upstream/production changes)
    =======
-   (upstream changes)
-   >>>>>>> upstream/production
+   (your opensoft-prod changes)
+   >>>>>>> opensoft-prod
    ```
 3. Edit the file to resolve the conflict, keeping the appropriate changes
 4. Remove the conflict markers
