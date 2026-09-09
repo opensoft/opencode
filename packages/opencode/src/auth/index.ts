@@ -9,6 +9,13 @@ export const OAUTH_DUMMY_KEY = "opencode-oauth-dummy-key"
 
 const file = path.join(Global.Path.data, "auth.json")
 
+function profile() {
+  const provider = process.env.OPENCODE_AUTH_PROFILE_PROVIDER?.replace(/\/+$/, "")
+  const file = process.env.OPENCODE_AUTH_PROFILE_FILE
+  if (!provider || !file) return
+  return { provider, file }
+}
+
 const fail = (message: string) => (cause: unknown) => new AuthError({ message, cause })
 
 export class Oauth extends Schema.Class<Oauth>("OAuth")({
@@ -55,15 +62,31 @@ const layer = Layer.effect(
     const fsys = yield* FSUtil.Service
     const decode = Schema.decodeUnknownOption(Info)
 
-    const all = Effect.fn("Auth.all")(function* () {
+    const read = Effect.fn("Auth.read")(function* (path: string) {
+      const data = (yield* fsys.readJson(path).pipe(Effect.orElseSucceed(() => ({})))) as Record<string, unknown>
+      return Record.filterMap(data, (value) => Result.fromOption(decode(value), () => undefined))
+    })
+
+    const base = Effect.fn("Auth.base")(function* () {
       if (process.env.OPENCODE_AUTH_CONTENT) {
         try {
           return JSON.parse(process.env.OPENCODE_AUTH_CONTENT)
         } catch (err) {}
       }
+      return yield* read(file)
+    })
 
-      const data = (yield* fsys.readJson(file).pipe(Effect.orElseSucceed(() => ({})))) as Record<string, unknown>
-      return Record.filterMap(data, (value) => Result.fromOption(decode(value), () => undefined))
+    const all = Effect.fn("Auth.all")(function* () {
+      const data = yield* base()
+      const selected = profile()
+      if (!selected) return data
+      const overlay = yield* read(selected.file)
+      const info = overlay[selected.provider]
+      if (!info) {
+        delete data[selected.provider]
+        return data
+      }
+      return { ...data, [selected.provider]: info }
     })
 
     const get = Effect.fn("Auth.get")(function* (providerID: string) {
@@ -72,7 +95,14 @@ const layer = Layer.effect(
 
     const set = Effect.fn("Auth.set")(function* (key: string, info: Info) {
       const norm = key.replace(/\/+$/, "")
-      const data = yield* all()
+      const selected = profile()
+      if (selected?.provider === norm) {
+        yield* fsys
+          .writeJson(selected.file, { [norm]: info }, 0o600)
+          .pipe(Effect.mapError(fail("Failed to write profile auth data")))
+        return
+      }
+      const data = yield* base()
       if (norm !== key) delete data[key]
       delete data[norm + "/"]
       yield* fsys
@@ -82,7 +112,12 @@ const layer = Layer.effect(
 
     const remove = Effect.fn("Auth.remove")(function* (key: string) {
       const norm = key.replace(/\/+$/, "")
-      const data = yield* all()
+      const selected = profile()
+      if (selected?.provider === norm) {
+        yield* fsys.writeJson(selected.file, {}, 0o600).pipe(Effect.mapError(fail("Failed to write profile auth data")))
+        return
+      }
+      const data = yield* base()
       delete data[key]
       delete data[norm]
       yield* fsys.writeJson(file, data, 0o600).pipe(Effect.mapError(fail("Failed to write auth data")))
